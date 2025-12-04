@@ -1,0 +1,70 @@
+<#
+.SYNOPSIS
+    Installs Git, Visual Studio Code, and Terraform (386) on Windows.
+    Use this script inside AWS SSM Run Command.
+#>
+
+$ErrorActionPreference = "Stop"
+$LogFile = "C:\Windows\Temp\install_tools.log"
+
+function Write-Log {
+    Param ([string]$Message)
+    $TimeStamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $LogOutput = "[$TimeStamp] $Message"
+    Write-Output $LogOutput
+}
+
+Write-Log "Starting Installation via SSM..."
+
+# 1. Install Chocolatey
+if (-not (Get-Command choco -ErrorAction SilentlyContinue)) {
+    Write-Log "Installing Chocolatey..."
+    [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
+    Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+    $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+}
+
+# 2. Install Git & VS Code
+$ChocoPackages = @("git", "vscode")
+foreach ($pkg in $ChocoPackages) {
+    Write-Log "Installing $pkg..."
+    try {
+        choco install $pkg -y --no-progress
+    } catch {
+        Write-Log "Error installing $pkg : $_"
+    }
+}
+
+# 3. Install Terraform 386 (Manual Download)
+$TfInstallDir = "C:\Terraform"
+$TfZipPath = "$env:TEMP\terraform.zip"
+
+try {
+    # Fetch Latest Version
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    $LatestRelease = Invoke-RestMethod -Uri "https://api.github.com/repos/hashicorp/terraform/releases/latest"
+    $TfVersion = $LatestRelease.tag_name -replace "v",""
+    
+    # Download 386 (32-bit)
+    $TfDownloadUrl = "https://releases.hashicorp.com/terraform/$TfVersion/terraform_${TfVersion}_windows_386.zip"
+    Write-Log "Downloading Terraform $TfVersion (386)..."
+    Invoke-WebRequest -Uri $TfDownloadUrl -OutFile $TfZipPath
+
+    # Extract
+    if (-not (Test-Path $TfInstallDir)) { New-Item -ItemType Directory -Path $TfInstallDir -Force | Out-Null }
+    Expand-Archive -Path $TfZipPath -DestinationPath $TfInstallDir -Force
+    
+    # Add to PATH
+    $CurrentPath = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
+    if ($CurrentPath -notlike "*$TfInstallDir*") {
+        [System.Environment]::SetEnvironmentVariable("Path", $CurrentPath + ";" + $TfInstallDir, "Machine")
+    }
+    Write-Log "Terraform installed."
+} catch {
+    Write-Log "Error installing Terraform: $_"
+}
+
+# 4. Refresh Path for Verification
+$env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+
+Write-Log "Installation Complete."
