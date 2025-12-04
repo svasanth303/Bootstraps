@@ -1,0 +1,125 @@
+<#
+.SYNOPSIS
+    Installs Git, Visual Studio Code, and Terraform (386) on Windows.
+.DESCRIPTION
+    1. Installs Chocolatey (Package Manager).
+    2. Uses Chocolatey to install VS Code and Git (Best reliability).
+    3. Manually downloads and installs Terraform 386 (Specific architecture requirement).
+.NOTES
+    File Name  : install_all_tools.ps1
+#>
+
+$ErrorActionPreference = "Stop"
+$LogFile = "C:\Windows\Temp\install_tools.log"
+
+function Write-Log {
+    Param ([string]$Message)
+    $TimeStamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $LogOutput = "[$TimeStamp] $Message"
+    Write-Output $LogOutput
+    try { Add-Content -Path $LogFile -Value $LogOutput -ErrorAction SilentlyContinue } catch {}
+}
+
+Write-Log "Starting Unified Installation Script..."
+
+# ==============================================================================
+# PART 1: Install Chocolatey
+# ==============================================================================
+if (-not (Get-Command choco -ErrorAction SilentlyContinue)) {
+    Write-Log "Chocolatey not found. Installing..."
+    try {
+        [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
+        Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+        
+        # Reload Environment Path to use 'choco' immediately
+        $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+        Write-Log "Chocolatey installed successfully."
+    }
+    catch {
+        Write-Log "CRITICAL: Failed to install Chocolatey. $_"
+        Exit 1
+    }
+} else {
+    Write-Log "Chocolatey is already installed."
+}
+
+# ==============================================================================
+# PART 2: Install Git & VS Code (via Chocolatey)
+# ==============================================================================
+# We use Chocolatey here because it handles the complex install flags and 
+# CDN redirects for these large applications better than raw PowerShell.
+
+$ChocoPackages = @("git", "vscode")
+
+foreach ($pkg in $ChocoPackages) {
+    Write-Log "Installing $pkg via Chocolatey..."
+    try {
+        # -y: Auto-confirm | --no-progress: Cleaner logs for Azure
+        choco install $pkg -y --no-progress
+        Write-Log "Successfully installed $pkg."
+    }
+    catch {
+        Write-Log "Error installing $pkg : $_"
+    }
+}
+
+# Refresh Path again to ensure 'git' and 'code' are visible to the next steps
+$env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+
+# ==============================================================================
+# PART 3: Install Terraform 386 (Custom Manual Download)
+# ==============================================================================
+# We use manual download here to strictly enforce the 32-bit (386) requirement.
+
+Write-Log "Starting Terraform (386) Custom Installation..."
+
+$TfInstallDir = "C:\Terraform"
+$TfZipPath = "$env:TEMP\terraform.zip"
+
+try {
+    # 1. Fetch Latest Version dynamically from GitHub API
+    Write-Log "Fetching latest Terraform version info..."
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    $LatestRelease = Invoke-RestMethod -Uri "https://api.github.com/repos/hashicorp/terraform/releases/latest"
+    $TfVersion = $LatestRelease.tag_name -replace "v",""
+    Write-Log "Latest version identified: $TfVersion"
+
+    # 2. Construct 386 (32-bit) URL
+    $TfDownloadUrl = "https://releases.hashicorp.com/terraform/$TfVersion/terraform_${TfVersion}_windows_386.zip"
+
+    # 3. Download
+    Write-Log "Downloading Terraform 386 from $TfDownloadUrl..."
+    Invoke-WebRequest -Uri $TfDownloadUrl -OutFile $TfZipPath
+
+    # 4. Extract
+    if (-not (Test-Path $TfInstallDir)) { New-Item -ItemType Directory -Path $TfInstallDir -Force | Out-Null }
+    Expand-Archive -Path $TfZipPath -DestinationPath $TfInstallDir -Force
+    
+    # 5. Add to Machine PATH
+    $CurrentPath = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
+    if ($CurrentPath -notlike "*$TfInstallDir*") {
+        Write-Log "Adding $TfInstallDir to System PATH..."
+        [System.Environment]::SetEnvironmentVariable("Path", $CurrentPath + ";" + $TfInstallDir, "Machine")
+    }
+
+    Write-Log "Terraform (386) installed successfully."
+    
+    # Cleanup Zip
+    Remove-Item $TfZipPath -Force -ErrorAction SilentlyContinue
+}
+catch {
+    Write-Log "Error installing Terraform: $_"
+}
+
+# ==============================================================================
+# PART 4: Final Verification
+# ==============================================================================
+Write-Log "Refreshing environment..."
+$env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+
+Write-Log "--- Verification Results ---"
+try { Write-Log "Git: $(git --version)" } catch { Write-Log "Git: Not found in current session" }
+try { Write-Log "Terraform: $(terraform --version)" } catch { Write-Log "Terraform: Not found in current session" }
+try { Write-Log "VS Code: $(code --version)" } catch { Write-Log "VS Code: Not found in current session" }
+
+Write-Log "Installation script completed."
