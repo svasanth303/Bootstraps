@@ -1,0 +1,64 @@
+<#
+.SYNOPSIS
+    Installs Microsoft Edge on Windows via AWS SSM Run Command.
+.DESCRIPTION
+    1. Bootstraps Chocolatey (if missing).
+    2. Installs the 'microsoft-edge' package.
+    3. Logs output to C:\Windows\Temp\install_edge.log.
+#>
+
+$ErrorActionPreference = "Stop"
+$LogFile = "C:\Windows\Temp\install_edge.log"
+
+function Write-Log {
+    Param ([string]$Message)
+    $TimeStamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $LogOutput = "[$TimeStamp] $Message"
+    Write-Output $LogOutput
+    # Try logging to file, continue if file locked
+    try { Add-Content -Path $LogFile -Value $LogOutput -ErrorAction SilentlyContinue } catch {}
+}
+
+Write-Log "Starting Microsoft Edge Installation via SSM..."
+
+# 1. Install Chocolatey (Bootstrap if not present)
+if (-not (Get-Command choco -ErrorAction SilentlyContinue)) {
+    Write-Log "Chocolatey not found. Installing..."
+    try {
+        [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
+        Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+        
+        # Refresh env vars so we can use 'choco' immediately
+        $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+        Write-Log "Chocolatey installed successfully."
+    }
+    catch {
+        Write-Log "CRITICAL: Failed to install Chocolatey. $_"
+        Exit 1
+    }
+}
+
+# 2. Install Microsoft Edge
+# Package: microsoft-edge
+try {
+    Write-Log "Installing Microsoft Edge..."
+    # -y: Auto-confirm prompts
+    # --no-progress: Keeps AWS console logs clean
+    choco install microsoft-edge -y --no-progress
+    Write-Log "Microsoft Edge installation command finished."
+}
+catch {
+    Write-Log "Error installing Edge: $_"
+    Exit 1
+}
+
+# 3. Verification
+# We refresh the path and check for the executable
+$EdgePath = "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
+if (Test-Path $EdgePath) {
+    Write-Log "Verification Success: msedge.exe found at $EdgePath"
+} else {
+    Write-Log "Warning: Could not verify specific msedge.exe path, but installation command finished."
+}
+
+Write-Log "Script Complete."
