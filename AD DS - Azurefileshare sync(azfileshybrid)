@@ -1,0 +1,33 @@
+# Required to install modules from the PowerShell Gallery
+Install-Module -Name PowerShellGet -Repository PSGallery -Force
+
+# Install the AzFilesHybrid module
+Install-Module -Name AzFilesHybrid -Repository PSGallery -AllowClobber -Force
+
+Import-Module -Name AzFilesHybrid
+
+Join-AzStorageAccountForAuth `
+    -ResourceGroupName "AVDRG" `
+    -Name "avdstorage303" `
+    -DomainAccountType "ComputerAccount" `
+    -OrganizationalUnitDistinguishedName "CN=Computers,DC=vpoint,DC=info"
+
+if it doesnot work try below
+
+Set-ExecutionPolicy -ExecutionPolicy Unrestricted -Scope CurrentUser
+
+Install-PackageProvider -Name NuGet -Force
+
+Import-Module -Name .\AzFilesHybrid.psd1
+
+Connect-AzAccount -UseDeviceAuthentication
+
+
+Join-AzStorageAccountForAuth `
+    -ResourceGroupName "AVD_RG" `
+    -Name "hrprofilesstorgare" `
+    -DomainAccountType "ComputerAccount" `
+    -OrganizationalUnitDistinguishedName "CN=Computers,DC=cloudpoint365,DC=info"
+
+D8alds_v6
+
