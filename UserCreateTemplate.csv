@@ -1,0 +1,7 @@
+﻿version:v1.0,,,,,,,,,,,,,,,,
+Name [displayName] Required,User name [userPrincipalName] Required,Initial password [passwordProfile] Required,Block sign in (Yes/No) [accountEnabled] Required,First name [givenName],Last name [surname],Job title [jobTitle],Department [department],Usage location [usageLocation],Street address [streetAddress],State or province [state],Country or region [country],Office [physicalDeliveryOfficeName],City [city],ZIP or postal code [postalCode],Office phone [telephoneNumber],Mobile phone [mobile]
+Test User1,user1@vpoint.info,myPassword1234,Yes,Test,User1,,,,,,,,,,,
+Test User2,user2@vpoint.info,myPassword1234,Yes,Test,User2,,,,,,,,,,,
+Test User3,user3@vpoint.info,myPassword1234,Yes,Test,User3,,,,,,,,,,,
+Test User4,user4@vpoint.info,myPassword1234,Yes,Test,User4,,,,,,,,,,,
+Test User5,user5@vpoint.info,myPassword1234,Yes,Test,User5,,,,,,,,,,,
