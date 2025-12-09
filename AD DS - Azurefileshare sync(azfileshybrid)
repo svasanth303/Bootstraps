@@ -6,6 +6,8 @@ Install-Module -Name AzFilesHybrid -Repository PSGallery -AllowClobber -Force
 
 Import-Module -Name AzFilesHybrid
 
+Connect-AzAccount -UseDeviceAuthentication
+
 Join-AzStorageAccountForAuth `
     -ResourceGroupName "AVDRG" `
     -Name "avdstorage303" `
