@@ -7,6 +7,8 @@ Install-Module -Name PowerShellGet -Repository PSGallery -Force
 # Install the AzFilesHybrid module
 Install-Module -Name AzFilesHybrid -Repository PSGallery -AllowClobber -Force
 
+cd .\AzFilesHybrid
+
 Import-Module -Name AzFilesHybrid
 
 Connect-AzAccount -UseDeviceAuthentication
