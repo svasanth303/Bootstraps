@@ -1,6 +1,8 @@
 nslookup 
 ipconfig /flushdns
 
+cd ../..
+
 # Required to install modules from the PowerShell Gallery
 Install-Module -Name PowerShellGet -Repository PSGallery -Force
 
